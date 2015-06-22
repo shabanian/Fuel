@@ -13,9 +13,10 @@ command-line arguments, and is expected to download the required files.
 from fuel.converters import binarized_mnist
 from fuel.converters import cifar10
 from fuel.converters import mnist
-
+from fuel.converters import uci
 __version__ = '0.1'
 all_converters = (
     ('binarized_mnist', binarized_mnist.fill_subparser),
     ('cifar10', cifar10.fill_subparser),
-    ('mnist', mnist.fill_subparser))
+    ('mnist', mnist.fill_subparser),
+    ('uci', uci.fill_subparser))

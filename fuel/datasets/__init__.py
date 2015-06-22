@@ -8,3 +8,4 @@ from fuel.datasets.cifar10 import CIFAR10
 from fuel.datasets.mnist import MNIST
 from fuel.datasets.text import TextFile
 from fuel.datasets.billion import OneBillionWord
+from fuel.datasets.uci import uci
