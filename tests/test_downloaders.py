@@ -7,9 +7,11 @@ from functools import wraps
 
 from numpy.testing import assert_equal, assert_raises
 
-from fuel.downloaders import mnist, binarized_mnist, cifar10
+from fuel.downloaders import (binarized_mnist, caltech101_silhouettes,
+                              cifar10, cifar100, iris, mnist, svhn)
 from fuel.downloaders.base import (download, default_downloader,
-                                   filename_from_url, NeedURLPrefix)
+                                   filename_from_url, NeedURLPrefix,
+                                   ensure_directory_exists)
 from picklable_itertools import chain
 from six.moves import range
 
@@ -70,6 +72,25 @@ class TestDownload(object):
             assert_equal(f.read(), mock_content)
 
 
+def test_ensure_directory_exists():
+    parent = tempfile.mkdtemp()
+    dirpath = os.path.join(parent, 'a', 'b')
+    filepath = os.path.join(dirpath, 'f')
+
+    # multiple checks for the same dir are fine
+    ensure_directory_exists(dirpath)
+    ensure_directory_exists(dirpath)
+
+    assert os.path.exists(dirpath)
+
+    with open(filepath, 'w') as f:
+        f.write(' ')
+
+    assert_raises(ensure_directory_exists(filepath))
+
+    shutil.rmtree(dirpath, ignore_errors=True)
+
+
 def test_mnist():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
@@ -97,6 +118,29 @@ def test_binarized_mnist():
     assert args.func is default_downloader
 
 
+def test_caltech101_silhouettes():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    caltech101_silhouettes.fill_subparser(
+        subparsers.add_parser('caltech101_silhouettes'))
+    args = parser.parse_args(['caltech101_silhouettes', '16'])
+    assert_equal(args.size, 16)
+    assert args.func is caltech101_silhouettes.silhouettes_downloader
+
+
+def test_iris():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    iris.fill_subparser(subparsers.add_parser('iris'))
+    args = parser.parse_args(['iris'])
+    urls = ['https://archive.ics.uci.edu/ml/machine-learning-databases/'
+            'iris/iris.data']
+    filenames = ['iris.data']
+    assert_equal(args.filenames, filenames)
+    assert_equal(args.urls, urls)
+    assert args.func is default_downloader
+
+
 def test_cifar10():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
@@ -107,6 +151,58 @@ def test_cifar10():
     assert_equal(args.filenames, filenames)
     assert_equal(args.urls, urls)
     assert args.func is default_downloader
+
+
+def test_cifar100():
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+    cifar100.fill_subparser(subparsers.add_parser('cifar100'))
+    args = parser.parse_args(['cifar100'])
+    filenames = ['cifar-100-python.tar.gz']
+    urls = ['http://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz']
+    assert_equal(args.filenames, filenames)
+    assert_equal(args.urls, urls)
+    assert args.func is default_downloader
+
+
+class TestSVHNDownloader(object):
+    def setUp(self):
+        self.parser = argparse.ArgumentParser()
+        subparsers = self.parser.add_subparsers()
+        subparser = subparsers.add_parser('svhn')
+        subparser.set_defaults(directory='./', clear=False)
+        svhn.fill_subparser(subparser)
+
+    def test_fill_subparser(self):
+        args = self.parser.parse_args(['svhn', '1'])
+        assert_equal(args.which_format, 1)
+        assert args.func is svhn.svhn_downloader
+
+    @mock.patch('fuel.downloaders.svhn.default_downloader')
+    def test_svhn_downloader_format_1(self, mock_default_downloader):
+        args = self.parser.parse_args(['svhn', '1'])
+        args_dict = vars(args)
+        func = args_dict.pop('func')
+        func(**args_dict)
+        mock_default_downloader.assert_called_with(
+            directory='./',
+            urls=[None] * 3,
+            filenames=['train.tar.gz', 'test.tar.gz', 'extra.tar.gz'],
+            url_prefix='http://ufldl.stanford.edu/housenumbers/',
+            clear=False)
+
+    @mock.patch('fuel.downloaders.svhn.default_downloader')
+    def test_svhn_downloader_format_2(self, mock_default_downloader):
+        args = self.parser.parse_args(['svhn', '2'])
+        args_dict = vars(args)
+        func = args_dict.pop('func')
+        func(**args_dict)
+        mock_default_downloader.assert_called_with(
+            directory='./',
+            urls=[None] * 3,
+            filenames=['train_32x32.mat', 'test_32x32.mat', 'extra_32x32.mat'],
+            url_prefix='http://ufldl.stanford.edu/housenumbers/',
+            clear=False)
 
 
 class TestDefaultDownloader(object):
